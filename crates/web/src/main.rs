@@ -1,3 +1,6 @@
+use dioxus::prelude::*;
+use hermes_dash_core::model::{group_by_column, Task};
+
 pub const API_BASE: &str = "http://127.0.0.1:8787";
 
 fn tasks_url(slug: &str) -> Option<String> {
@@ -14,10 +17,53 @@ fn response_error(status: u16) -> Option<&'static str> {
     }
 }
 
+#[component]
+fn BoardView(tasks: Vec<Task>) -> Element {
+    let columns = group_by_column(&tasks);
+    let labels = ["Todo", "Ready", "Running", "Blocked", "Review", "Done"];
+    rsx! {
+        section { class: "board", "aria-label": "Kolom Kanban",
+            for (column, label) in columns.iter().zip(labels) {
+                section { class: "column", key: "{label}",
+                    h2 { "{label}" }
+                    if column.tasks.is_empty() { p { class: "empty", "Tidak ada kartu." } }
+                    for task in &column.tasks {
+                        article { class: "card", key: "{task.id}",
+                            code { "{task.id}" }
+                            h3 { "{task.title}" }
+                            p { "{task.assignee.as_deref().unwrap_or(\"Belum ditugaskan\")}" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn main() {}
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn board_renders_six_columns_and_card_fields_as_text() {
+        use dioxus::prelude::*;
+        use hermes_dash_core::model::{Status, Task};
+        let mut dom = VirtualDom::new(|| rsx! {
+            super::BoardView { tasks: vec![Task {
+                id: "t_visible".into(), title: "<script>alert(1)</script>".into(),
+                status: Status::Running, assignee: Some("archi".into()),
+            }, Task {
+                id: "t_unassigned".into(), title: "Unassigned".into(),
+                status: Status::Todo, assignee: None,
+            }] }
+        });
+        let mutations = format!("{:?}", dom.rebuild_to_vec());
+        for text in ["Todo", "Ready", "Running", "Blocked", "Review", "Done",
+            "t_visible", "<script>alert(1)</script>", "archi", "Belum ditugaskan"] {
+            assert!(mutations.contains(text), "missing {text}: {mutations}");
+        }
+    }
+
     #[test]
     fn failures_are_short_static_messages() {
         assert_eq!(super::response_error(200), None);
