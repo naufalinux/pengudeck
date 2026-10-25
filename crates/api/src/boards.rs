@@ -1,5 +1,9 @@
 use hermes_dash_core::source::SourceError;
 
+pub trait BoardSource {
+    fn boards(&self) -> Result<Vec<String>, SourceError>;
+}
+
 pub fn valid_slug(slug: &str) -> bool {
     !slug.is_empty()
         && slug
