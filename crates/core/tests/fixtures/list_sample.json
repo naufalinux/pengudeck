@@ -1,0 +1,7 @@
+[
+  {"id":"t_todo_1","title":"First todo","status":"todo","assignee":"archi","created_by":"zaha","created_at":1792961030},
+  {"id":"t_running","title":"Running task","status":"running","assignee":null},
+  {"id":"t_todo_2","title":"Second todo","status":"todo","assignee":"kevin"},
+  {"id":"t_done","title":"Done task","status":"done","assignee":null,"completed_at":1792961045},
+  {"id":"t_future","title":"Future task","status":"future_status","assignee":null,"extra":{"ignored":true}}
+]
