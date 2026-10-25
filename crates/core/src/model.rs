@@ -23,3 +23,26 @@ pub struct Task {
     pub status: Status,
     pub assignee: Option<String>,
 }
+
+pub const COLUMNS: [Status; 6] = [
+    Status::Todo,
+    Status::Ready,
+    Status::Running,
+    Status::Blocked,
+    Status::Review,
+    Status::Done,
+];
+
+#[derive(Debug, Serialize)]
+pub struct Column<'a> {
+    pub status: Status,
+    pub tasks: Vec<&'a Task>,
+}
+
+/// Retains source order within each visible column, including empty columns.
+pub fn group_by_column(tasks: &[Task]) -> Vec<Column<'_>> {
+    COLUMNS.into_iter().map(|status| Column {
+        status,
+        tasks: tasks.iter().filter(|task| task.status == status).collect(),
+    }).collect()
+}
