@@ -4,8 +4,11 @@ use hermes_dash_core::model::{group_by_column, Task};
 pub const API_BASE: &str = "http://127.0.0.1:8787";
 
 fn tasks_url(slug: &str) -> Option<String> {
-    (!slug.is_empty() && slug.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-'))
-        .then(|| format!("{API_BASE}/api/boards/{slug}/tasks"))
+    (!slug.is_empty()
+        && slug
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'_' || c == b'-'))
+    .then(|| format!("{API_BASE}/api/boards/{slug}/tasks"))
 }
 
 fn response_error(status: u16) -> Option<&'static str> {
@@ -57,7 +60,8 @@ fn BoardPicker(boards: Vec<String>, selected: String, on_select: EventHandler<St
 
 async fn request(url: String, kind: &str) -> Result<(Vec<String>, Vec<Task>), &'static str> {
     let eval = document::eval(include_str!("fetch.js"));
-    eval.send((url, kind)).map_err(|_| "API tidak dapat dihubungi.")?;
+    eval.send((url, kind))
+        .map_err(|_| "API tidak dapat dihubungi.")?;
     let (status, boards, tasks): (u16, Vec<String>, Vec<Task>) =
         eval.join().await.map_err(|_| "Respons API tidak valid.")?;
     match response_error(status) {
@@ -70,7 +74,9 @@ async fn request(url: String, kind: &str) -> Result<(Vec<String>, Vec<Task>), &'
 fn App() -> Element {
     let mut selected = use_signal(String::new);
     let mut boards = use_resource(|| async {
-        request(format!("{API_BASE}/api/boards"), "boards").await.map(|data| data.0)
+        request(format!("{API_BASE}/api/boards"), "boards")
+            .await
+            .map(|data| data.0)
     });
     // Reactive resource cancels its previous future on selection changes.
     // Tag the result too: never render a previous board under the new selector.
@@ -145,11 +151,13 @@ mod tests {
     #[test]
     fn selector_renders_api_slugs_and_current_selection() {
         use dioxus::prelude::*;
-        let mut dom = VirtualDom::new(|| rsx! {
-            super::BoardPicker {
-                boards: vec!["team-a".into(), "team_b".into()],
-                selected: "team_b".to_string(),
-                on_select: |_| {},
+        let mut dom = VirtualDom::new(|| {
+            rsx! {
+                super::BoardPicker {
+                    boards: vec!["team-a".into(), "team_b".into()],
+                    selected: "team_b".to_string(),
+                    on_select: |_| {},
+                }
             }
         });
         let mutations = format!("{:?}", dom.rebuild_to_vec());
@@ -162,18 +170,30 @@ mod tests {
     fn board_renders_six_columns_and_card_fields_as_text() {
         use dioxus::prelude::*;
         use hermes_dash_core::model::{Status, Task};
-        let mut dom = VirtualDom::new(|| rsx! {
-            super::BoardView { tasks: vec![Task {
-                id: "t_visible".into(), title: "<script>alert(1)</script>".into(),
-                status: Status::Running, assignee: Some("archi".into()),
-            }, Task {
-                id: "t_unassigned".into(), title: "Unassigned".into(),
-                status: Status::Todo, assignee: None,
-            }] }
+        let mut dom = VirtualDom::new(|| {
+            rsx! {
+                super::BoardView { tasks: vec![Task {
+                    id: "t_visible".into(), title: "<script>alert(1)</script>".into(),
+                    status: Status::Running, assignee: Some("archi".into()),
+                }, Task {
+                    id: "t_unassigned".into(), title: "Unassigned".into(),
+                    status: Status::Todo, assignee: None,
+                }] }
+            }
         });
         let mutations = format!("{:?}", dom.rebuild_to_vec());
-        for text in ["Todo", "Ready", "Running", "Blocked", "Review", "Done",
-            "t_visible", "<script>alert(1)</script>", "archi", "Belum ditugaskan"] {
+        for text in [
+            "Todo",
+            "Ready",
+            "Running",
+            "Blocked",
+            "Review",
+            "Done",
+            "t_visible",
+            "<script>alert(1)</script>",
+            "archi",
+            "Belum ditugaskan",
+        ] {
             assert!(mutations.contains(text), "missing {text}: {mutations}");
         }
     }
@@ -184,14 +204,20 @@ mod tests {
         assert_eq!(super::response_error(0), Some("API tidak dapat dihubungi."));
         assert_eq!(super::response_error(1), Some("Respons API tidak valid."));
         for status in [201, 204, 301, 400, 404, 500, 502] {
-            assert_eq!(super::response_error(status), Some("API gagal memuat data."));
+            assert_eq!(
+                super::response_error(status),
+                Some("API gagal memuat data.")
+            );
         }
     }
 
     #[test]
     fn requests_use_fixed_loopback_and_only_valid_slugs() {
         assert_eq!(super::API_BASE, "http://127.0.0.1:8787");
-        assert_eq!(super::tasks_url("team-A_1"), Some("http://127.0.0.1:8787/api/boards/team-A_1/tasks".into()));
+        assert_eq!(
+            super::tasks_url("team-A_1"),
+            Some("http://127.0.0.1:8787/api/boards/team-A_1/tasks".into())
+        );
         for slug in ["", "../secrets", "a/b", "a?b", "a\"b", "é", "a b"] {
             assert_eq!(super::tasks_url(slug), None);
         }

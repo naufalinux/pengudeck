@@ -1,4 +1,5 @@
 // Fixed program; URL/kind arrive as serialized values, never executable source.
+return (async () => {
 const [url, kind] = await dioxus.recv();
 let response;
 try {
@@ -21,6 +22,7 @@ try {
         }
         return [200, [...new Set(data)], []];
     }
+    if (kind !== "tasks") return [1, [], []];
     const statuses = ["todo", "ready", "running", "blocked", "review", "done"];
     if (!data || !Array.isArray(data.columns) || data.columns.length !== 6) {
         return [1, [], []];
@@ -44,3 +46,4 @@ try {
 } catch (_) {
     return [1, [], []];
 }
+})();
