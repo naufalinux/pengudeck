@@ -60,6 +60,30 @@ async fn request(source: FakeSource, method: &str, uri: &str) -> (StatusCode, Va
     (status, serde_json::from_slice(&body).unwrap())
 }
 #[tokio::test]
+async fn fixture_groups_into_exact_six_columns() {
+    let (status, body) = request(FakeSource::default(), "GET", "/api/boards/default/tasks").await;
+    assert_eq!(status, StatusCode::OK);
+    let tasks = parse_list(include_str!("../../core/tests/fixtures/list_sample.json")).unwrap();
+    let expected = json!({"columns":[
+        {"status":"todo", "tasks":[tasks[0], tasks[2]]},
+        {"status":"ready", "tasks":[]},
+        {"status":"running", "tasks":[tasks[1]]},
+        {"status":"blocked", "tasks":[]},
+        {"status":"review", "tasks":[]},
+        {"status":"done", "tasks":[tasks[3]]}
+    ]});
+    assert_eq!(body, expected);
+    assert!(body["columns"][2]["tasks"][0]["assignee"].is_null());
+    let counts: Vec<_> = body["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["tasks"].as_array().unwrap().len())
+        .collect();
+    assert_eq!(counts, [2, 0, 1, 0, 0, 1]);
+}
+
+#[tokio::test]
 async fn health_is_exact_liveness_json() {
     let source = FakeSource {
         boards: Err(SourceError::Unavailable),
