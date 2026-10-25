@@ -1,0 +1,15 @@
+:root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #11151c; color: #e3e8ef; }
+body { margin: 0; }
+main { max-width: 1600px; margin: auto; padding: 24px; }
+header { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
+h1 { margin: 0 auto 0 0; font-size: 1.5rem; }
+select, button { font: inherit; background: #242d3b; color: inherit; border: 1px solid #65748a; border-radius: 6px; padding: 8px 12px; }
+:focus-visible { outline: 3px solid #81b5ff; outline-offset: 3px; }
+.board { display: grid; grid-template-columns: repeat(6, minmax(220px, 1fr)); gap: 16px; overflow-x: auto; padding-bottom: 16px; }
+.column { background: #1a212d; border: 1px solid #354156; border-radius: 10px; padding: 16px; min-height: 240px; }
+h2 { font-size: 1rem; margin: 0 0 20px; }
+.card { background: #252f40; border: 1px solid #475872; border-radius: 6px; padding: 12px; margin-bottom: 12px; overflow-wrap: anywhere; }
+h3 { font-size: 1rem; margin: 10px 0; }
+code, .card p, .empty { font-size: .85rem; color: #bcc9dc; }
+[role=alert] { padding: 12px; border-left: 3px solid #ffb3b3; color: #ffcccc; }
+@media (max-width: 600px) { main { padding: 16px; } }

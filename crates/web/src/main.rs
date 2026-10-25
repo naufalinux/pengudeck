@@ -55,10 +55,93 @@ fn BoardPicker(boards: Vec<String>, selected: String, on_select: EventHandler<St
     }
 }
 
-fn main() {}
+async fn request(url: String, kind: &str) -> Result<(Vec<String>, Vec<Task>), &'static str> {
+    let eval = document::eval(include_str!("fetch.js"));
+    eval.send((url, kind)).map_err(|_| "API tidak dapat dihubungi.")?;
+    let (status, boards, tasks): (u16, Vec<String>, Vec<Task>) =
+        eval.join().await.map_err(|_| "Respons API tidak valid.")?;
+    match response_error(status) {
+        Some(message) => Err(message),
+        None => Ok((boards, tasks)),
+    }
+}
+
+#[component]
+fn App() -> Element {
+    let mut selected = use_signal(String::new);
+    let mut boards = use_resource(|| async {
+        request(format!("{API_BASE}/api/boards"), "boards").await.map(|data| data.0)
+    });
+    // Reactive resource cancels its previous future on selection changes.
+    // Tag the result too: never render a previous board under the new selector.
+    let mut cards = use_resource(move || async move {
+        let slug = selected();
+        let result = match tasks_url(&slug) {
+            Some(url) => request(url, "tasks").await.map(|data| data.1),
+            None => Ok(Vec::new()),
+        };
+        (slug, result)
+    });
+    let board_state = boards.read();
+    let slugs = match board_state.as_ref() {
+        Some(Ok(slugs)) => slugs.clone(),
+        _ => Vec::new(),
+    };
+    let card_state = cards.read();
+    let mut tasks = Vec::new();
+    let mut card_error = None;
+    let mut loading = !selected().is_empty();
+    if let Some((slug, result)) = card_state.as_ref() {
+        if *slug == selected() {
+            loading = false;
+            match result {
+                Ok(data) => tasks = data.clone(),
+                Err(message) => card_error = Some(*message),
+            }
+        }
+    }
+    rsx! {
+        style { {include_str!("style.css")} }
+        main {
+            header {
+                h1 { "Hermes Kanban" }
+                BoardPicker { boards: slugs, selected: selected(),
+                    on_select: move |slug| selected.set(slug) }
+                button { onclick: move |_| { boards.restart(); cards.restart(); }, "Muat ulang" }
+            }
+            div { role: "status", "aria-live": "polite",
+                if board_state.is_none() { p { "Memuat daftar board…" } }
+                if let Some(Ok(slugs)) = board_state.as_ref() {
+                    if slugs.is_empty() { p { "Tidak ada board." } }
+                    else if selected().is_empty() { p { "Pilih board untuk melihat kartu." } }
+                }
+                if loading { p { "Memuat kartu…" } }
+            }
+            if let Some(Err(message)) = board_state.as_ref() { p { role: "alert", "{message}" } }
+            if let Some(message) = card_error { p { role: "alert", "{message}" } }
+            BoardView { tasks }
+        }
+    }
+}
+
+fn main() {
+    dioxus::launch(App);
+}
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn initial_app_mounts_without_assuming_a_board() {
+        use dioxus::prelude::*;
+        let mut dom = VirtualDom::new(super::App);
+        let mutations = format!("{:?}", dom.rebuild_to_vec());
+        assert!(mutations.contains("Bool(true)")); // empty selector is disabled
+        for label in ["Todo", "Ready", "Running", "Blocked", "Review", "Done"] {
+            assert!(mutations.contains(label));
+        }
+        assert!(!mutations.contains("team-a"));
+    }
+
     #[test]
     fn selector_renders_api_slugs_and_current_selection() {
         use dioxus::prelude::*;
