@@ -40,10 +40,41 @@ fn BoardView(tasks: Vec<Task>) -> Element {
     }
 }
 
+#[component]
+fn BoardPicker(boards: Vec<String>, selected: String, on_select: EventHandler<String>) -> Element {
+    rsx! {
+        label { r#for: "board", "Board" }
+        select {
+            id: "board", value: "{selected}", disabled: boards.is_empty(),
+            onchange: move |event| on_select.call(event.value()),
+            option { value: "", disabled: true, "Pilih board" }
+            for slug in &boards {
+                option { key: "{slug}", value: "{slug}", "{slug}" }
+            }
+        }
+    }
+}
+
 fn main() {}
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn selector_renders_api_slugs_and_current_selection() {
+        use dioxus::prelude::*;
+        let mut dom = VirtualDom::new(|| rsx! {
+            super::BoardPicker {
+                boards: vec!["team-a".into(), "team_b".into()],
+                selected: "team_b".to_string(),
+                on_select: |_| {},
+            }
+        });
+        let mutations = format!("{:?}", dom.rebuild_to_vec());
+        for text in ["change", "team-a", "team_b", "Bool(false)"] {
+            assert!(mutations.contains(text), "missing {text}: {mutations}");
+        }
+    }
+
     #[test]
     fn board_renders_six_columns_and_card_fields_as_text() {
         use dioxus::prelude::*;
