@@ -1,31 +1,50 @@
 #![cfg(unix)]
 
 use hermes_dash_core::source::{CliSource, TaskSource};
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf, sync::atomic::{AtomicU64, Ordering}};
+use std::{
+    fs,
+    os::unix::fs::PermissionsExt,
+    path::PathBuf,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
-struct FakeCli { dir: PathBuf, bin: PathBuf }
+struct FakeCli {
+    dir: PathBuf,
+    bin: PathBuf,
+}
 
 impl FakeCli {
     fn new(body: &str) -> Self {
-        let dir = std::env::temp_dir().join(format!("hermes-dash-t_cc8c9332-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+        let dir = std::env::temp_dir().join(format!(
+            "hermes-dash-t_cc8c9332-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
         fs::create_dir(&dir).unwrap();
         let bin = dir.join("fake hermes");
         fs::write(&bin, format!("#!/bin/sh\n{body}\n")).unwrap();
         fs::set_permissions(&bin, fs::Permissions::from_mode(0o700)).unwrap();
         Self { dir, bin }
     }
-    fn source(&self) -> CliSource { CliSource { hermes_bin: self.bin.clone() } }
+    fn source(&self) -> CliSource {
+        CliSource {
+            hermes_bin: self.bin.clone(),
+        }
+    }
 }
 
 impl Drop for FakeCli {
-    fn drop(&mut self) { fs::remove_dir_all(&self.dir).unwrap(); }
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.dir).unwrap();
+    }
 }
 
 #[test]
 fn passes_exact_argv_and_treats_shell_metacharacters_as_literal_data() {
-    let fake = FakeCli::new(r#"
+    let fake = FakeCli::new(
+        r#"
 [ "$#" -eq 5 ] || exit 11
 [ "$1" = kanban ] || exit 12
 [ "$2" = --board ] || exit 13
@@ -33,7 +52,8 @@ fn passes_exact_argv_and_treats_shell_metacharacters_as_literal_data() {
 [ "$4" = list ] || exit 15
 [ "$5" = --json ] || exit 16
 printf '%s' '[{"id":"one","title":"One","status":"todo"}]'
-"#);
+"#,
+    );
     let source: &dyn TaskSource = &fake.source();
     let tasks = source.list("board ; $(exit 99) * \" spaced").unwrap();
     assert_eq!(tasks.len(), 1);
@@ -53,7 +73,9 @@ fn nonzero_exit_rejects_valid_stdout_and_does_not_expose_stderr() {
 #[test]
 fn spawn_failure_does_not_expose_executable_path() {
     let fake = FakeCli::new("exit 0");
-    let source = CliSource { hermes_bin: fake.dir.join("SECRET_MISSING_BINARY") };
+    let source = CliSource {
+        hermes_bin: fake.dir.join("SECRET_MISSING_BINARY"),
+    };
     let error = source.list("default").unwrap_err();
     assert!(!format!("{error} {error:?}").contains("SECRET_MISSING_BINARY"));
 }

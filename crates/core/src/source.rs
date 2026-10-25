@@ -41,8 +41,7 @@ impl TaskSource for CliSource {
         if !output.status.success() {
             return Err(SourceError::Unavailable);
         }
-        let stdout = std::str::from_utf8(&output.stdout)
-            .map_err(|_| SourceError::InvalidData)?;
+        let stdout = std::str::from_utf8(&output.stdout).map_err(|_| SourceError::InvalidData)?;
         parse_list(stdout)
     }
 }

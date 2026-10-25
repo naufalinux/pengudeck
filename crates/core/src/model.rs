@@ -41,8 +41,11 @@ pub struct Column<'a> {
 
 /// Retains source order within each visible column, including empty columns.
 pub fn group_by_column(tasks: &[Task]) -> Vec<Column<'_>> {
-    COLUMNS.into_iter().map(|status| Column {
-        status,
-        tasks: tasks.iter().filter(|task| task.status == status).collect(),
-    }).collect()
+    COLUMNS
+        .into_iter()
+        .map(|status| Column {
+            status,
+            tasks: tasks.iter().filter(|task| task.status == status).collect(),
+        })
+        .collect()
 }

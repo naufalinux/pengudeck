@@ -4,8 +4,10 @@ use hermes_dash_core::{model::Status, source::parse_list};
 fn parses_five_task_fixture_in_source_order() {
     let tasks = parse_list(include_str!("fixtures/list_sample.json")).unwrap();
     assert_eq!(tasks.len(), 5);
-    assert_eq!(tasks.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(),
-        ["t_todo_1", "t_running", "t_todo_2", "t_done", "t_future"]);
+    assert_eq!(
+        tasks.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(),
+        ["t_todo_1", "t_running", "t_todo_2", "t_done", "t_future"]
+    );
     assert_eq!(tasks[0].assignee.as_deref(), Some("archi"));
     assert_eq!(tasks[1].assignee, None);
     assert_eq!(tasks[4].status, Status::Unknown);
@@ -33,7 +35,11 @@ fn rejects_missing_required_fields_and_wrong_model_types() {
         assert!(parse_list(&serde_json::json!([task]).to_string()).is_err());
     }
     for field in ["id", "title", "status", "assignee"] {
-        for invalid in [serde_json::json!(42), serde_json::json!({}), serde_json::json!([])] {
+        for invalid in [
+            serde_json::json!(42),
+            serde_json::json!({}),
+            serde_json::json!([]),
+        ] {
             let mut task = valid.clone();
             task[field] = invalid;
             assert!(parse_list(&serde_json::json!([task]).to_string()).is_err());
