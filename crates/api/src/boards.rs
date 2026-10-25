@@ -1,4 +1,24 @@
 use hermes_dash_core::source::SourceError;
+use std::{path::PathBuf, process::Command};
+
+pub struct CliBoardSource {
+    pub hermes_bin: PathBuf,
+}
+
+impl BoardSource for CliBoardSource {
+    /// Blocking invocation; callers must isolate it from the async executor.
+    fn boards(&self) -> Result<Vec<String>, SourceError> {
+        let output = Command::new(&self.hermes_bin)
+            .args(["kanban", "boards", "list"])
+            .output()
+            .map_err(|_| SourceError::Unavailable)?;
+        if !output.status.success() {
+            return Err(SourceError::Unavailable);
+        }
+        let stdout = std::str::from_utf8(&output.stdout).map_err(|_| SourceError::InvalidData)?;
+        parse_boards(stdout)
+    }
+}
 
 pub trait BoardSource {
     fn boards(&self) -> Result<Vec<String>, SourceError>;
