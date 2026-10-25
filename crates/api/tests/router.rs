@@ -84,6 +84,92 @@ async fn fixture_groups_into_exact_six_columns() {
 }
 
 #[tokio::test]
+async fn invalid_slugs_are_rejected_before_sources() {
+    for slug in ["bad.slug", "bad%20slug", "%2F", "%C3%A9", "%00", "--flag!"] {
+        let source = FakeSource {
+            boards: Err(SourceError::Unavailable),
+            tasks: Err(SourceError::Unavailable),
+        };
+        assert_eq!(
+            request(source, "GET", &format!("/api/boards/{slug}/tasks")).await,
+            (StatusCode::BAD_REQUEST, json!({"error":"invalid_board"}))
+        );
+    }
+}
+#[tokio::test]
+async fn unknown_valid_board_is_not_found() {
+    assert_eq!(
+        request(
+            FakeSource::default(),
+            "GET",
+            "/api/boards/Absent_-123/tasks"
+        )
+        .await,
+        (StatusCode::NOT_FOUND, json!({"error":"board_not_found"}))
+    );
+}
+#[tokio::test]
+async fn board_failure_prevents_task_lookup() {
+    let source = FakeSource {
+        boards: Err(SourceError::InvalidData),
+        ..Default::default()
+    };
+    assert_eq!(
+        request(source, "GET", "/api/boards/absent/tasks").await,
+        (
+            StatusCode::BAD_GATEWAY,
+            json!({"error":"source_unavailable"})
+        )
+    );
+}
+#[tokio::test]
+async fn task_source_failures_are_sanitized() {
+    for error in [SourceError::Unavailable, SourceError::InvalidData] {
+        let source = FakeSource {
+            tasks: Err(error),
+            ..Default::default()
+        };
+        assert_eq!(
+            request(source, "GET", "/api/boards/default/tasks").await,
+            (
+                StatusCode::BAD_GATEWAY,
+                json!({"error":"source_unavailable"})
+            )
+        );
+    }
+}
+#[tokio::test]
+async fn empty_board_keeps_all_six_columns() {
+    let source = FakeSource {
+        tasks: Ok(vec![]),
+        ..Default::default()
+    };
+    let expected = json!({"columns":[{"status":"todo","tasks":[]},{"status":"ready","tasks":[]},{"status":"running","tasks":[]},{"status":"blocked","tasks":[]},{"status":"review","tasks":[]},{"status":"done","tasks":[]}]});
+    assert_eq!(
+        request(source, "GET", "/api/boards/default/tasks").await,
+        (StatusCode::OK, expected)
+    );
+}
+#[tokio::test]
+async fn post_is_not_allowed_on_all_read_routes() {
+    for uri in ["/api/health", "/api/boards", "/api/boards/default/tasks"] {
+        assert_eq!(
+            request(FakeSource::default(), "POST", uri).await.0,
+            StatusCode::METHOD_NOT_ALLOWED
+        );
+    }
+}
+#[tokio::test]
+async fn unknown_route_is_not_found() {
+    assert_eq!(
+        request(FakeSource::default(), "GET", "/api/unknown")
+            .await
+            .0,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[tokio::test]
 async fn health_is_exact_liveness_json() {
     let source = FakeSource {
         boards: Err(SourceError::Unavailable),

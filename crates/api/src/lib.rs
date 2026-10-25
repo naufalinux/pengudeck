@@ -34,6 +34,23 @@ async fn list_tasks(
     State(sources): State<Sources>,
     axum::extract::Path(slug): axum::extract::Path<String>,
 ) -> Result<Json<Value>, ApiError> {
+    if !boards::valid_slug(&slug) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid_board"})),
+        ));
+    }
+    let board_source = sources.boards;
+    let boards = tokio::task::spawn_blocking(move || board_source.boards())
+        .await
+        .map_err(|_| unavailable())?
+        .map_err(|_| unavailable())?;
+    if !boards.contains(&slug) {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({"error":"board_not_found"})),
+        ));
+    }
     let tasks = tokio::task::spawn_blocking(move || sources.tasks.list(&slug))
         .await
         .map_err(|_| unavailable())?
