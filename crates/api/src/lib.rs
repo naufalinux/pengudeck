@@ -1,3 +1,5 @@
+pub mod boards;
+
 use axum::{routing::get, Json, Router};
 use serde_json::{json, Value};
 
