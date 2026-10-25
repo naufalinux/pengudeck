@@ -85,7 +85,15 @@ async fn fixture_groups_into_exact_six_columns() {
 
 #[tokio::test]
 async fn invalid_slugs_are_rejected_before_sources() {
-    for slug in ["bad.slug", "bad%20slug", "%2F", "%C3%A9", "%00", "--flag!"] {
+    for slug in [
+        "bad.slug",
+        "bad%20slug",
+        "%2F",
+        "%C3%A9",
+        "%00",
+        "%FF",
+        "--flag!",
+    ] {
         let source = FakeSource {
             boards: Err(SourceError::Unavailable),
             tasks: Err(SourceError::Unavailable),

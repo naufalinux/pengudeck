@@ -38,8 +38,14 @@ pub fn router(
 
 async fn list_tasks(
     State(sources): State<Sources>,
-    axum::extract::Path(slug): axum::extract::Path<String>,
+    path: Result<axum::extract::Path<String>, axum::extract::rejection::PathRejection>,
 ) -> Result<Json<Value>, ApiError> {
+    let axum::extract::Path(slug) = path.map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid_board"})),
+        )
+    })?;
     if !boards::valid_slug(&slug) {
         return Err((
             StatusCode::BAD_REQUEST,
