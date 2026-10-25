@@ -1,5 +1,11 @@
 pub mod boards;
 
+/// Fixed production listener; deliberately not configurable by arguments or environment.
+pub const BIND_ADDR: std::net::SocketAddr = std::net::SocketAddr::V4(std::net::SocketAddrV4::new(
+    std::net::Ipv4Addr::LOCALHOST,
+    8787,
+));
+
 use axum::{extract::State, http::StatusCode, routing::get, Json, Router};
 use boards::BoardSource;
 use hermes_dash_core::source::TaskSource;
