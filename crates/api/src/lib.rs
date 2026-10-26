@@ -1,4 +1,5 @@
 pub mod boards;
+mod cors;
 
 /// Fixed production listener; deliberately not configurable by arguments or environment.
 pub const BIND_ADDR: std::net::SocketAddr = std::net::SocketAddr::V4(std::net::SocketAddrV4::new(
@@ -34,6 +35,8 @@ pub fn router(
         .route("/api/boards", get(list_boards))
         .route("/api/boards/{slug}/tasks", get(list_tasks))
         .with_state(Sources { boards, tasks })
+        // Router-wide layer also covers unknown API paths and error responses.
+        .layer(axum::middleware::from_fn(cors::local_ui))
 }
 
 async fn list_tasks(
