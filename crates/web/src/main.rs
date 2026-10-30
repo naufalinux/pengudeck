@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use hermes_dash_core::model::{group_by_column, Task};
+use hermes_dash_core::model::{group_by_column, LastUpdatedSource, Task};
 
 pub const API_BASE: &str = "http://127.0.0.1:8788";
 
@@ -20,6 +20,39 @@ fn response_error(status: u16) -> Option<&'static str> {
     }
 }
 
+/// Formats unix seconds as `YYYY-MM-DD HH:MM (UTC+8)`, the server's own clock offset.
+pub fn format_last_updated(ts: i64) -> String {
+    let secs = ts + 8 * 3600;
+    let days = secs.div_euclid(86_400);
+    let rem = secs.rem_euclid(86_400);
+    let (y, m, d) = civil_from_days(days);
+    format!("{y:04}-{m:02}-{d:02} {:02}:{:02} (UTC+8)", rem / 3600, (rem % 3600) / 60)
+}
+
+/// Howard Hinnant's days-to-civil conversion (proleptic Gregorian).
+fn civil_from_days(z: i64) -> (i64, u32, u32) {
+    let z = z + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    let y = yoe + era * 400;
+    (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+/// Label for the card line. Says where the value came from, so a fallback is not mistaken for an event.
+fn last_updated_label(task: &Task) -> Option<String> {
+    let ts = task.last_updated?;
+    let when = format_last_updated(ts);
+    Some(match task.last_updated_source {
+        Some(LastUpdatedSource::Events) => format!("Terakhir diperbarui: {when}"),
+        _ => format!("Terakhir diperbarui: {when} (dari created/started/completed)"),
+    })
+}
+
 #[component]
 fn BoardView(tasks: Vec<Task>) -> Element {
     let columns = group_by_column(&tasks);
@@ -35,6 +68,7 @@ fn BoardView(tasks: Vec<Task>) -> Element {
                             code { "{task.id}" }
                             h3 { "{task.title}" }
                             p { "{task.assignee.as_deref().unwrap_or(\"Belum ditugaskan\")}" }
+                            if let Some(label) = last_updated_label(task) { small { "{label}" } }
                         }
                     }
                 }
@@ -136,6 +170,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use hermes_dash_core::model::{LastUpdatedSource, Status, Task};
     #[test]
     fn initial_app_mounts_without_assuming_a_board() {
         use dioxus::prelude::*;
@@ -169,16 +204,13 @@ mod tests {
     #[test]
     fn board_renders_six_columns_and_card_fields_as_text() {
         use dioxus::prelude::*;
-        use hermes_dash_core::model::{Status, Task};
         let mut dom = VirtualDom::new(|| {
             rsx! {
                 super::BoardView { tasks: vec![Task {
                     id: "t_visible".into(), title: "<script>alert(1)</script>".into(),
-                    status: Status::Running, assignee: Some("archi".into()),
-                }, Task {
+                    status: Status::Running, assignee: Some("archi".into()), created_at: None, started_at: None, completed_at: None, last_updated: None, last_updated_source: None }, Task {
                     id: "t_unassigned".into(), title: "Unassigned".into(),
-                    status: Status::Todo, assignee: None,
-                }] }
+                    status: Status::Todo, assignee: None, created_at: None, started_at: None, completed_at: None, last_updated: None, last_updated_source: None }] }
             }
         });
         let mutations = format!("{:?}", dom.rebuild_to_vec());
@@ -196,6 +228,29 @@ mod tests {
         ] {
             assert!(mutations.contains(text), "missing {text}: {mutations}");
         }
+    }
+
+    #[test]
+    fn formats_utc8_dates_and_known_epochs() {
+        assert_eq!(super::format_last_updated(0), "1970-01-01 08:00 (UTC+8)");
+        // 1792957202 is created_at of task t_437645c2, 2026-10-26 03:40 UTC+8.
+        assert_eq!(super::format_last_updated(1_792_957_202), "2026-10-26 03:40 (UTC+8)");
+        assert_eq!(super::format_last_updated(951_782_400), "2000-02-29 08:00 (UTC+8)");
+    }
+
+    #[test]
+    fn label_names_the_source_and_is_absent_without_value() {
+        let mut t = Task {
+            id: "t".into(), title: "t".into(), status: Status::Done, assignee: None,
+            created_at: None, started_at: None, completed_at: None,
+            last_updated: None, last_updated_source: None,
+        };
+        assert_eq!(super::last_updated_label(&t), None);
+        t.last_updated = Some(0);
+        t.last_updated_source = Some(LastUpdatedSource::Events);
+        assert_eq!(super::last_updated_label(&t).unwrap(), "Terakhir diperbarui: 1970-01-01 08:00 (UTC+8)");
+        t.last_updated_source = Some(LastUpdatedSource::Timestamps);
+        assert!(super::last_updated_label(&t).unwrap().ends_with("(dari created/started/completed)"));
     }
 
     #[test]

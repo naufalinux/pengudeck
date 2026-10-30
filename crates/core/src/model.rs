@@ -22,6 +22,27 @@ pub struct Task {
     pub title: String,
     pub status: Status,
     pub assignee: Option<String>,
+    /// Read from the CLI JSON; used only to derive `last_updated`, never serialized.
+    #[serde(default, skip_serializing)]
+    pub created_at: Option<i64>,
+    #[serde(default, skip_serializing)]
+    pub started_at: Option<i64>,
+    #[serde(default, skip_serializing)]
+    pub completed_at: Option<i64>,
+    /// Unix seconds of the latest known activity; set by `events::enrich`, omitted until then.
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub last_updated: Option<i64>,
+    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    pub last_updated_source: Option<LastUpdatedSource>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LastUpdatedSource {
+    /// Latest row of `task_events` for this task.
+    Events,
+    /// Fallback: max of created/started/completed timestamps (no event row found).
+    Timestamps,
 }
 
 pub const COLUMNS: [Status; 6] = [

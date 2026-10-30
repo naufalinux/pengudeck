@@ -59,8 +59,7 @@ fn hidden_statuses_are_dropped() {
         id: "hidden".into(),
         title: "Hidden".into(),
         status,
-        assignee: None,
-    })
+        assignee: None, created_at: None, started_at: None, completed_at: None, last_updated: None, last_updated_source: None })
     .collect();
     let columns = group_by_column(&tasks);
     assert_eq!(columns.len(), 6);
@@ -77,6 +76,11 @@ fn every_visible_status_has_its_own_column() {
             title: "Visible".into(),
             status,
             assignee: None,
+            created_at: None,
+            started_at: None,
+            completed_at: None,
+            last_updated: None,
+            last_updated_source: None,
         })
         .collect();
     for (column, status) in group_by_column(&tasks).iter().zip(COLUMNS) {

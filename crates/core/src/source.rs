@@ -42,6 +42,10 @@ impl TaskSource for CliSource {
             return Err(SourceError::Unavailable);
         }
         let stdout = std::str::from_utf8(&output.stdout).map_err(|_| SourceError::InvalidData)?;
-        parse_list(stdout)
+        #[allow(unused_mut)]
+        let mut tasks = parse_list(stdout)?;
+        #[cfg(feature = "events")]
+        crate::events::enrich(&mut tasks, board, &crate::events::hermes_root());
+        Ok(tasks)
     }
 }
