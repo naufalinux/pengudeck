@@ -3,5 +3,5 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 #[test]
 fn production_address_is_fixed_ipv4_loopback() {
-    assert_eq!(BIND_ADDR, SocketAddr::from((Ipv4Addr::LOCALHOST, 8787)));
+    assert_eq!(BIND_ADDR, SocketAddr::from((Ipv4Addr::LOCALHOST, 8788)));
 }

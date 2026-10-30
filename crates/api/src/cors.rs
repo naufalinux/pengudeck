@@ -5,7 +5,7 @@ use axum::{
     response::Response,
 };
 
-const UI_ORIGIN: &str = "http://127.0.0.1:8080";
+const UI_ORIGIN: &str = "http://127.0.0.1:8081";
 
 pub(crate) async fn local_ui(request: Request, next: Next) -> Response {
     let path = request.uri().path();

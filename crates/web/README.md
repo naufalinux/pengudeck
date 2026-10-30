@@ -30,7 +30,7 @@ node --test crates/web/tests/fetch.test.mjs # from workspace root
 
 ## Runtime behavior
 
-The API base is the Rust constant `http://127.0.0.1:8787`. Board options come
+The API base is the Rust constant `http://127.0.0.1:8788`. Board options come
 from `GET /api/boards`; choose one to fetch `GET /api/boards/{slug}/tasks`.
 There is no hardcoded default board. All six columns remain visible, including
 empty columns. Core owns grouping; card content is rendered as text, never HTML.

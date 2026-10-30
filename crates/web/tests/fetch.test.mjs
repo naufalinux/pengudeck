@@ -7,8 +7,8 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const program = new AsyncFunction('dioxus', 'fetch', await readFile(new URL('../src/fetch.js', import.meta.url), 'utf8'));
 const statuses = ['todo', 'ready', 'running', 'blocked', 'review', 'done'];
 const emptyBoard = () => ({ columns: statuses.map(status => ({ status, tasks: [] })) });
-const run = (kind, response) => program({ recv: async () => ['http://127.0.0.1:8787/api/boards', kind] }, async (url, options) => {
-    assert.equal(url, 'http://127.0.0.1:8787/api/boards');
+const run = (kind, response) => program({ recv: async () => ['http://127.0.0.1:8788/api/boards', kind] }, async (url, options) => {
+    assert.equal(url, 'http://127.0.0.1:8788/api/boards');
     assert.equal(options.method, 'GET');
     assert.equal(options.credentials, 'omit');
     assert.equal(options.redirect, 'error');

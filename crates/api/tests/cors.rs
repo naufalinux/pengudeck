@@ -12,7 +12,7 @@ use hermes_dash_core::{
 };
 use std::sync::Arc;
 
-const ORIGIN: &str = "http://127.0.0.1:8080";
+const ORIGIN: &str = "http://127.0.0.1:8081";
 
 struct Source;
 impl BoardSource for Source {
@@ -50,18 +50,18 @@ fn assert_no_extra_cors(response: &Response) {
 async fn negative_origins_never_receive_allow_origin() {
     for origins in [
         vec![],
-        vec!["http://localhost:8080"],
-        vec!["http://127.0.0.1:8081"],
-        vec!["https://127.0.0.1:8080"],
+        vec!["http://localhost:8081"],
+        vec!["http://127.0.0.1:8080"],
+        vec!["https://127.0.0.1:8081"],
         vec!["null"],
         vec!["https://example.com"],
-        vec!["http://127.0.0.1:8080.evil"],
-        vec!["evilhttp://127.0.0.1:8080"],
-        vec!["http://127.0.0.1:8080/"],
+        vec!["http://127.0.0.1:8081.evil"],
+        vec!["evilhttp://127.0.0.1:8081"],
+        vec!["http://127.0.0.1:8081/"],
         vec![""],
         vec!["malformed"],
-        vec!["http://127.0.0.1:8080, http://127.0.0.1:8080"],
-        vec!["http://127.0.0.1:8080 http://example.com"],
+        vec!["http://127.0.0.1:8081, http://127.0.0.1:8081"],
+        vec!["http://127.0.0.1:8081 http://example.com"],
         vec![ORIGIN, ORIGIN],
         vec![ORIGIN, "null"],
         vec!["null", ORIGIN],
