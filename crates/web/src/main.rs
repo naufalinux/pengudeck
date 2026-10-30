@@ -56,11 +56,18 @@ fn last_updated_label(task: &Task) -> Option<String> {
 #[component]
 fn BoardView(tasks: Vec<Task>) -> Element {
     let columns = group_by_column(&tasks);
-    let labels = ["Todo", "Ready", "Running", "Blocked", "Review", "Done"];
+    let labels = [
+        ("Todo", "todo"),
+        ("Ready", "ready"),
+        ("Running", "running"),
+        ("Blocked", "blocked"),
+        ("Review", "review"),
+        ("Done", "done"),
+    ];
     rsx! {
         section { class: "board", "aria-label": "Kolom Kanban",
-            for (column, label) in columns.iter().zip(labels) {
-                section { class: "column", key: "{label}",
+            for (column, (label, status)) in columns.iter().zip(labels) {
+                section { class: "column", key: "{label}", "data-status": "{status}",
                     h2 { "{label}" }
                     if column.tasks.is_empty() { p { class: "empty", "Tidak ada kartu." } }
                     for task in &column.tasks {
@@ -112,6 +119,21 @@ fn save_board(slug: &str) {
     }
 }
 
+/// Only "dark" selects dark mode. Anything else, including nothing saved, is light (the site default).
+pub fn normalize_theme(saved: &str) -> &'static str {
+    if saved == "dark" { "dark" } else { "light" }
+}
+
+async fn read_saved_theme() -> String {
+    let eval = document::eval(include_str!("theme_get.js"));
+    eval.join::<String>().await.unwrap_or_default()
+}
+
+fn save_theme(theme: &str) {
+    let eval = document::eval(include_str!("theme_set.js"));
+    let _ = eval.send(theme.to_string());
+}
+
 async fn request(url: String, kind: &str) -> Result<(Vec<String>, Vec<Task>), &'static str> {
     let eval = document::eval(include_str!("fetch.js"));
     eval.send((url, kind))
@@ -148,6 +170,18 @@ fn App() -> Element {
             }
         }
     });
+    let saved_theme = use_resource(read_saved_theme);
+    let mut theme = use_signal(|| "light".to_string());
+    let mut theme_chosen = use_signal(|| false);
+    use_effect(move || {
+        if theme_chosen() {
+            return;
+        }
+        if let Some(saved_value) = saved_theme.read().as_ref().cloned() {
+            theme_chosen.set(true);
+            theme.set(normalize_theme(&saved_value).to_string());
+        }
+    });
     // Reactive resource cancels its previous future on selection changes.
     // Tag the result too: never render a previous board under the new selector.
     let mut cards = use_resource(move || async move {
@@ -176,18 +210,30 @@ fn App() -> Element {
             }
         }
     }
+    let theme_label = if theme() == "dark" { "Mode terang" } else { "Mode gelap" };
     rsx! {
         style { {include_str!("style.css")} }
-        main {
+        main { "data-theme": "{theme()}",
             header {
+                div { class: "brand", "One Penguin Tech" }
                 h1 { "Hermes Kanban" }
-                BoardPicker { boards: slugs, selected: selected(),
-                    on_select: move |slug: String| {
-                        chosen.set(true);
-                        save_board(&slug);
-                        selected.set(slug);
-                    } }
-                button { onclick: move |_| { boards.restart(); cards.restart(); }, "Muat ulang" }
+                div { class: "controls",
+                    BoardPicker { boards: slugs, selected: selected(),
+                        on_select: move |slug: String| {
+                            chosen.set(true);
+                            save_board(&slug);
+                            selected.set(slug);
+                        } }
+                    button { class: "btn", onclick: move |_| { boards.restart(); cards.restart(); }, "Muat ulang" }
+                    button { class: "btn",
+                        onclick: move |_| {
+                            let next = if theme() == "dark" { "light" } else { "dark" };
+                            theme_chosen.set(true);
+                            save_theme(next);
+                            theme.set(next.to_string());
+                        },
+                        "{theme_label}" }
+                }
             }
             div { role: "status", "aria-live": "polite",
                 if board_state.is_none() { p { "Memuat daftar board…" } }
@@ -224,6 +270,14 @@ mod tests {
         assert_eq!(super::choose_initial_board("reporty", &no_default), Some("reporty".into()));
         assert_eq!(super::choose_initial_board("default", &[]), None);
     }
+    #[test]
+    fn theme_is_dark_only_when_saved_as_dark() {
+        assert_eq!(super::normalize_theme("dark"), "dark");
+        assert_eq!(super::normalize_theme("light"), "light");
+        assert_eq!(super::normalize_theme(""), "light");
+        assert_eq!(super::normalize_theme("javascript:alert(1)"), "light");
+    }
+
     #[test]
     fn initial_app_mounts_without_assuming_a_board() {
         use dioxus::prelude::*;

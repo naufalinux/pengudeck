@@ -1,15 +1,69 @@
-:root { color-scheme: dark; font: 16px system-ui, sans-serif; background: #11151c; color: #e3e8ef; }
-body { margin: 0; }
-main { max-width: 1600px; margin: auto; padding: 24px; }
-header { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
-h1 { margin: 0 auto 0 0; font-size: 1.5rem; }
-select, button { font: inherit; background: #242d3b; color: inherit; border: 1px solid #65748a; border-radius: 6px; padding: 8px 12px; }
-:focus-visible { outline: 3px solid #81b5ff; outline-offset: 3px; }
-.board { display: grid; grid-template-columns: repeat(6, minmax(220px, 1fr)); gap: 16px; overflow-x: auto; padding-bottom: 16px; }
-.column { background: #1a212d; border: 1px solid #354156; border-radius: 10px; padding: 16px; min-height: 240px; }
-h2 { font-size: 1rem; margin: 0 0 20px; }
-.card { background: #252f40; border: 1px solid #475872; border-radius: 6px; padding: 12px; margin-bottom: 12px; overflow-wrap: anywhere; }
-h3 { font-size: 1rem; margin: 10px 0; }
-code, .card p, .empty { font-size: .85rem; color: #bcc9dc; }
-[role=alert] { padding: 12px; border-left: 3px solid #ffb3b3; color: #ffcccc; }
+/* Hermes Kanban: tokens from One Penguin Tech live site (src/styles/global.css). */
+@font-face { font-family: "Fraunces Variable"; font-style: normal; font-display: swap; font-weight: 100 900;
+    src: url("/fonts/fraunces-latin-wght.woff2") format("woff2-variations"); }
+@font-face { font-family: "Schibsted Grotesk Variable"; font-style: normal; font-display: swap; font-weight: 100 900;
+    src: url("/fonts/schibsted-grotesk-latin-wght.woff2") format("woff2-variations"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-display: swap; font-weight: 500;
+    src: url("/fonts/jetbrains-mono-latin-500.woff2") format("woff2"); }
+
+/* Light (default, matches the site body). */
+:root, [data-theme="light"] {
+    color-scheme: light;
+    --bg: #eef3f4; --surface: #dfe9ec; --card: #f7fafb;
+    --text: #0e1a24; --text-2: #4b5d69; --line: #0e1a24; --line-soft: rgba(14, 26, 36, 0.16);
+    --accent: #ff6a1f; --accent-text: #0e1a24; --shadow: #0e1a24; --ring: #0e1a24;
+}
+/* Dark (matches the site's dark sections; button shadow uses the accent like .btn.dark). */
+[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0e1a24; --surface: #1b2b38; --card: #132130;
+    --text: #eef3f4; --text-2: #bcd6df; --line: #eef3f4; --line-soft: rgba(188, 214, 223, 0.2);
+    --accent: #ff6a1f; --accent-text: #0e1a24; --shadow: #ff6a1f; --ring: #ff6a1f;
+}
+
+:root {
+    --f-display: "Fraunces Variable", Georgia, serif;
+    --f-body: "Schibsted Grotesk Variable", system-ui, sans-serif;
+    --f-mono: "JetBrains Mono", ui-monospace, monospace;
+    --margin: clamp(1rem, 2.6vw, 2rem);
+    --radius: 16px;
+    --spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/1.5 var(--f-body);
+    -webkit-font-smoothing: antialiased; }
+main { max-width: 1600px; margin: 0 auto; padding: var(--margin); }
+header { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; margin-bottom: 32px; }
+.brand { font: 500 0.75rem/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-2); }
+h1 { font: 600 clamp(2.25rem, 1.3rem + 3vw, 4rem)/1 var(--f-display); letter-spacing: -0.03em;
+    font-variation-settings: "SOFT" 100, "WONK" 1; margin: 8px 0 0; }
+h2 { font: 600 1.125rem/1.2 var(--f-display); letter-spacing: -0.02em; margin: 0 0 16px; }
+h3 { font: 600 1.0625rem/1.25 var(--f-display); letter-spacing: -0.01em; margin: 8px 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-left: auto; }
+select { font: inherit; color: var(--text); background: var(--card); border: 2px solid var(--line);
+    border-radius: 999px; padding: 0.6rem 1rem; }
+.btn { font: 600 1rem/1 var(--f-body); color: var(--accent-text); background: var(--accent);
+    border: 2px solid var(--line); border-radius: 999px; padding: 0.75rem 1.25rem; cursor: pointer;
+    box-shadow: 4px 4px 0 var(--shadow);
+    transition: transform 180ms var(--spring), box-shadow 180ms var(--spring); }
+.btn:hover { transform: translateY(-2px) scale(1.02); box-shadow: 6px 7px 0 var(--shadow); }
+.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--shadow); }
+:focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
+.board { display: grid; grid-template-columns: repeat(6, minmax(220px, 1fr)); gap: 16px;
+    overflow-x: auto; padding-bottom: 16px; scroll-snap-type: x proximity; }
+.column { background: var(--surface); border: 1px solid var(--line-soft); border-top: 4px solid var(--line-soft);
+    border-radius: var(--radius); padding: 16px; min-height: 240px; scroll-snap-align: start; }
+.column[data-status="running"], .column[data-status="blocked"] { border-top-color: var(--accent); }
+.column[data-status="done"] { border-top-color: var(--text-2); }
+.card { background: var(--card); border: 1px solid var(--line-soft); border-radius: var(--radius);
+    padding: 12px 14px; margin-bottom: 12px; overflow-wrap: anywhere; }
+code { font: 500 0.8125rem/1.4 var(--f-mono); color: var(--text-2); }
+.card p, .empty, small { font-size: 0.875rem; color: var(--text-2); margin: 4px 0 0; }
+.empty { font-style: italic; }
+[role=alert] { padding: 12px 16px; border-radius: var(--radius); border: 2px solid var(--line);
+    background: var(--card); color: var(--text); }
+@media (max-width: 900px) {
+    .board { grid-template-columns: repeat(6, 80vw); scroll-snap-type: x mandatory; }
+}
 @media (max-width: 600px) { main { padding: 16px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
