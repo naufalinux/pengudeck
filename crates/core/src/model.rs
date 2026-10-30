@@ -30,9 +30,9 @@ pub struct Task {
     #[serde(default, skip_serializing)]
     pub completed_at: Option<i64>,
     /// Unix seconds of the latest known activity; set by `events::enrich`, omitted until then.
-    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_updated: Option<i64>,
-    #[serde(default, skip_deserializing, skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_updated_source: Option<LastUpdatedSource>,
 }
 
