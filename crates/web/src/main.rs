@@ -92,6 +92,26 @@ fn BoardPicker(boards: Vec<String>, selected: String, on_select: EventHandler<St
     }
 }
 
+/// Chooses the board to open: the saved one if the API still lists it, else `default`, else nothing.
+pub fn choose_initial_board(saved: &str, slugs: &[String]) -> Option<String> {
+    if !saved.is_empty() && slugs.iter().any(|s| s == saved) {
+        return Some(saved.to_string());
+    }
+    slugs.iter().find(|s| *s == "default").cloned()
+}
+
+async fn read_saved_board() -> String {
+    let eval = document::eval(include_str!("storage_get.js"));
+    eval.join::<String>().await.unwrap_or_default()
+}
+
+fn save_board(slug: &str) {
+    if tasks_url(slug).is_some() {
+        let eval = document::eval(include_str!("storage_set.js"));
+        let _ = eval.send(slug.to_string());
+    }
+}
+
 async fn request(url: String, kind: &str) -> Result<(Vec<String>, Vec<Task>), &'static str> {
     let eval = document::eval(include_str!("fetch.js"));
     eval.send((url, kind))
@@ -111,6 +131,22 @@ fn App() -> Element {
         request(format!("{API_BASE}/api/boards"), "boards")
             .await
             .map(|data| data.0)
+    });
+    let saved = use_resource(read_saved_board);
+    // Set once: either the first board list is applied, or the user has picked a board.
+    let mut chosen = use_signal(|| false);
+    use_effect(move || {
+        if chosen() {
+            return;
+        }
+        let saved_slug = saved.read().as_ref().cloned();
+        let listed: Option<Result<Vec<String>, &'static str>> = boards.read().as_ref().cloned();
+        if let (Some(saved_slug), Some(Ok(slugs))) = (saved_slug, listed) {
+            chosen.set(true);
+            if let Some(pick) = choose_initial_board(&saved_slug, &slugs) {
+                selected.set(pick);
+            }
+        }
     });
     // Reactive resource cancels its previous future on selection changes.
     // Tag the result too: never render a previous board under the new selector.
@@ -146,7 +182,11 @@ fn App() -> Element {
             header {
                 h1 { "Hermes Kanban" }
                 BoardPicker { boards: slugs, selected: selected(),
-                    on_select: move |slug| selected.set(slug) }
+                    on_select: move |slug: String| {
+                        chosen.set(true);
+                        save_board(&slug);
+                        selected.set(slug);
+                    } }
                 button { onclick: move |_| { boards.restart(); cards.restart(); }, "Muat ulang" }
             }
             div { role: "status", "aria-live": "polite",
@@ -171,6 +211,19 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use hermes_dash_core::model::{LastUpdatedSource, Status, Task};
+
+    #[test]
+    fn initial_board_prefers_saved_then_default_then_nothing() {
+        let slugs = vec!["reporty".to_string(), "default".to_string(), "zaha".to_string()];
+        assert_eq!(super::choose_initial_board("zaha", &slugs), Some("zaha".into()));
+        // Saved board removed from the API: fall back to default.
+        assert_eq!(super::choose_initial_board("gone", &slugs), Some("default".into()));
+        assert_eq!(super::choose_initial_board("", &slugs), Some("default".into()));
+        let no_default = vec!["reporty".to_string()];
+        assert_eq!(super::choose_initial_board("", &no_default), None);
+        assert_eq!(super::choose_initial_board("reporty", &no_default), Some("reporty".into()));
+        assert_eq!(super::choose_initial_board("default", &[]), None);
+    }
     #[test]
     fn initial_app_mounts_without_assuming_a_board() {
         use dioxus::prelude::*;
