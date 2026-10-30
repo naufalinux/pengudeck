@@ -20,13 +20,13 @@ fn response_error(status: u16) -> Option<&'static str> {
     }
 }
 
-/// Formats unix seconds as `YYYY-MM-DD HH:MM (UTC+8)`, the server's own clock offset.
+/// Formats unix seconds as `YYYY-MM-DD HH:MM WIB` (Asia/Jakarta, UTC+7, no DST).
 pub fn format_last_updated(ts: i64) -> String {
-    let secs = ts + 8 * 3600;
+    let secs = ts + 7 * 3600;
     let days = secs.div_euclid(86_400);
     let rem = secs.rem_euclid(86_400);
     let (y, m, d) = civil_from_days(days);
-    format!("{y:04}-{m:02}-{d:02} {:02}:{:02} (UTC+8)", rem / 3600, (rem % 3600) / 60)
+    format!("{y:04}-{m:02}-{d:02} {:02}:{:02} WIB", rem / 3600, (rem % 3600) / 60)
 }
 
 /// Howard Hinnant's days-to-civil conversion (proleptic Gregorian).
@@ -232,10 +232,10 @@ mod tests {
 
     #[test]
     fn formats_utc8_dates_and_known_epochs() {
-        assert_eq!(super::format_last_updated(0), "1970-01-01 08:00 (UTC+8)");
-        // 1792957202 is created_at of task t_437645c2, 2026-10-26 03:40 UTC+8.
-        assert_eq!(super::format_last_updated(1_792_957_202), "2026-10-26 03:40 (UTC+8)");
-        assert_eq!(super::format_last_updated(951_782_400), "2000-02-29 08:00 (UTC+8)");
+        assert_eq!(super::format_last_updated(0), "1970-01-01 07:00 WIB");
+        // 1792957202 is created_at of task t_437645c2: 2026-10-26 03:40 UTC+8 = 02:40 WIB.
+        assert_eq!(super::format_last_updated(1_792_957_202), "2026-10-26 02:40 WIB");
+        assert_eq!(super::format_last_updated(951_782_400), "2000-02-29 07:00 WIB");
     }
 
     #[test]
@@ -248,7 +248,7 @@ mod tests {
         assert_eq!(super::last_updated_label(&t), None);
         t.last_updated = Some(0);
         t.last_updated_source = Some(LastUpdatedSource::Events);
-        assert_eq!(super::last_updated_label(&t).unwrap(), "Terakhir diperbarui: 1970-01-01 08:00 (UTC+8)");
+        assert_eq!(super::last_updated_label(&t).unwrap(), "Terakhir diperbarui: 1970-01-01 07:00 WIB");
         t.last_updated_source = Some(LastUpdatedSource::Timestamps);
         assert!(super::last_updated_label(&t).unwrap().ends_with("(dari created/started/completed)"));
     }
