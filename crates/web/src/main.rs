@@ -129,6 +129,12 @@ async fn read_saved_theme() -> String {
     eval.join::<String>().await.unwrap_or_default()
 }
 
+/// Applies the theme to <html> so body and page background pick up the same tokens as the cards.
+fn apply_theme(theme: &str) {
+    let eval = document::eval(include_str!("theme_apply.js"));
+    let _ = eval.send(theme.to_string());
+}
+
 fn save_theme(theme: &str) {
     let eval = document::eval(include_str!("theme_set.js"));
     let _ = eval.send(theme.to_string());
@@ -210,6 +216,7 @@ fn App() -> Element {
             }
         }
     }
+    use_effect(move || apply_theme(&theme()));
     let theme_label = if theme() == "dark" { "Mode terang" } else { "Mode gelap" };
     rsx! {
         style { {include_str!("style.css")} }

@@ -16,7 +16,7 @@
 /* Dark (matches the site's dark sections; button shadow uses the accent like .btn.dark). */
 [data-theme="dark"] {
     color-scheme: dark;
-    --bg: #0e1a24; --surface: #1b2b38; --card: #132130;
+    --bg: #0e1a24; --surface: #1b2b38; --card: #2a3f52;
     --text: #eef3f4; --text-2: #bcd6df; --line: #eef3f4; --line-soft: rgba(188, 214, 223, 0.2);
     --accent: #ff6a1f; --accent-text: #0e1a24; --shadow: #ff6a1f; --ring: #ff6a1f;
 }

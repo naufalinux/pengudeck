@@ -4,7 +4,7 @@ import { test } from 'node:test';
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 const css = await readFile(new URL('../src/style.css', import.meta.url), 'utf8');
-const load = async name => new AsyncFunction('dioxus', 'localStorage', await readFile(new URL(`../src/${name}`, import.meta.url), 'utf8'));
+const load = async name => new AsyncFunction('dioxus', 'localStorage', 'document', await readFile(new URL(`../src/${name}`, import.meta.url), 'utf8'));
 
 const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255)
     .map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
@@ -63,4 +63,17 @@ test('theme storage saves only light or dark and returns "" otherwise', async ()
     const blocked = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
     assert.equal(await get(null, blocked), '');
     assert.equal(await set({ recv: async () => 'light' }, blocked), true);
+});
+
+test('apply sets the theme on <html> so body and page background use the same tokens', async () => {
+    const apply = await load('theme_apply.js');
+    for (const theme of ['dark', 'light']) {
+        const html = { dataset: {} };
+        const sent = await apply({ recv: async () => theme }, null, { documentElement: html });
+        assert.equal(html.dataset.theme, theme);
+        assert.equal(sent, true);
+    }
+    const html = { dataset: { theme: 'dark' } };
+    await apply({ recv: async () => 'neon' }, null, { documentElement: html });
+    assert.equal(html.dataset.theme, 'dark', 'invalid value must be ignored');
 });
