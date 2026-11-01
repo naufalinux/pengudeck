@@ -77,3 +77,18 @@ test('apply sets the theme on <html> so body and page background use the same to
     await apply({ recv: async () => 'neon' }, null, { documentElement: html });
     assert.equal(html.dataset.theme, 'dark', 'invalid value must be ignored');
 });
+
+test('dark select options use theme colours (Firefox paints disabled options grey by default)', () => {
+    const dark = block('[data-theme="dark"] select option');
+    assert.match(dark, /color:\s*var\(--text\)/);
+    const disabled = block('[data-theme="dark"] select option:disabled');
+    assert.match(disabled, /color:\s*var\(--text-2\)/);
+});
+
+test('page shell makes no external requests (no Google Fonts, no CDN)', async () => {
+    const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+    assert.doesNotMatch(html, /googleapis|gstatic|https?:\/\//i);
+    assert.match(html, /<div id="main"><\/div>/);
+    // dx fills <title> from Dioxus.toml; the source keeps it empty.
+    assert.match(await readFile(new URL('../Dioxus.toml', import.meta.url), 'utf8'), /title = "Hermes Kanban"/);
+});

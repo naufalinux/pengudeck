@@ -51,6 +51,8 @@ select { font: inherit; color: var(--text); background: var(--card); border: 2px
 :focus-visible { outline: 3px solid var(--ring); outline-offset: 3px; }
 .board { display: grid; grid-template-columns: repeat(6, minmax(220px, 1fr)); gap: 16px;
     overflow-x: auto; padding-bottom: 16px; scroll-snap-type: x proximity; }
+[data-theme="dark"] select option { color: var(--text); background: var(--card); }
+[data-theme="dark"] select option:disabled { color: var(--text-2); }
 .column { background: var(--surface); border: 1px solid var(--line-soft); border-top: 4px solid var(--line-soft);
     border-radius: var(--radius); padding: 16px; min-height: 240px; scroll-snap-align: start; }
 .column[data-status="running"], .column[data-status="blocked"] { border-top-color: var(--accent); }
