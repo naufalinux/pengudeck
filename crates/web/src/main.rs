@@ -230,7 +230,7 @@ fn App() -> Element {
                     button { class: "btn", "aria-expanded": show_settings(),
                         onclick: move |_| show_settings.set(!show_settings()),
                         if show_settings() { "Kembali ke board" } else { "Settings" } }
-                    BoardPicker { boards: slugs, selected: selected(),
+                    BoardPicker { boards: slugs.clone(), selected: selected(),
                         on_select: move |slug: String| {
                             chosen.set(true);
                             save_board(&slug);
@@ -257,7 +257,7 @@ fn App() -> Element {
             }
             if let Some(Err(message)) = board_state.as_ref() { p { role: "alert", "{message}" } }
             if let Some(message) = card_error { p { role: "alert", "{message}" } }
-            if show_settings() { settings::RetentionPanel {} }
+            if show_settings() { settings::CleanupPanel { boards: slugs.clone() } }
             else { BoardView { tasks } }
         }
     }

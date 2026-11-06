@@ -1,6 +1,7 @@
 pub mod boards;
-pub mod retention;
+pub mod cleanup;
 mod cors;
+pub mod retention;
 
 /// Fixed production listener; deliberately not configurable by arguments or environment.
 pub const BIND_ADDR: std::net::SocketAddr = std::net::SocketAddr::V4(std::net::SocketAddrV4::new(

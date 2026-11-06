@@ -1,5 +1,5 @@
 //! Disposable loopback-only server for the browser contract test; never production.
-use hermes_dash_api::{boards::CliBoardSource, retention, router};
+use hermes_dash_api::{boards::CliBoardSource, cleanup, retention, router};
 use hermes_dash_core::source::CliSource;
 use std::{io::Write, path::PathBuf, sync::Arc};
 
@@ -17,7 +17,8 @@ async fn main() -> std::io::Result<()> {
             hermes_bin: PathBuf::from("hermes"),
         }),
     )
-    .merge(retention::router(home));
+    .merge(retention::router(home.clone()))
+    .merge(cleanup::router(home));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
     println!("{}", listener.local_addr()?);
     std::io::stdout().flush()?;

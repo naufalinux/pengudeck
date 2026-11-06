@@ -1,4 +1,4 @@
-use hermes_dash_api::{boards::CliBoardSource, retention, router, BIND_ADDR};
+use hermes_dash_api::{boards::CliBoardSource, cleanup, retention, router, BIND_ADDR};
 use hermes_dash_core::source::CliSource;
 use std::{path::PathBuf, sync::Arc};
 
@@ -11,7 +11,8 @@ async fn main() -> std::io::Result<()> {
         }),
         Arc::new(CliSource { hermes_bin }),
     )
-    .merge(retention::router(retention::shared_home()));
+    .merge(retention::router(retention::shared_home()))
+    .merge(cleanup::router(retention::shared_home()));
     let listener = tokio::net::TcpListener::bind(BIND_ADDR).await?;
     let scheduler = tokio::spawn(retention::scheduler(retention::shared_home()));
     let result = axum::serve(listener, app).await;

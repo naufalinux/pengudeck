@@ -86,63 +86,97 @@ async function run(engine) {
     page.on('console', msg => { if (msg.type() === 'error' && !msg.text().includes('_dioxus')) errors.push(msg.text()); });
     await page.goto('http://127.0.0.1:8081');
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    await page.locator('#archive-days').waitFor();
-    assert.equal(await page.locator('#archive-days').inputValue(), '30');
-    assert.equal(await page.locator('#purge-days').inputValue(), '180');
-    assert.equal(await page.locator('#retention-enabled').isChecked(), false);
-    await page.locator('#archive-days').fill('0');
-    assert.equal(await page.getByRole('button', { name: 'Simpan kebijakan' }).isDisabled(), true);
-    await page.locator('#archive-days').fill('30');
-    assert.equal(await page.getByRole('button', { name: 'Inisialisasi pencatatan', exact: true }).isDisabled(), true);
-    await page.locator('#tracking-confirmation').fill('INITIALIZE TRACKING');
-    await page.getByRole('button', { name: 'Inisialisasi pencatatan', exact: true }).click();
-    await page.getByText('Pencatatan retensi siap. Jalankan preview baru.', { exact: true }).waitFor();
+    const hasTracking = () => execFileSync('python3', ['-c', `import sqlite3,sys; db=sqlite3.connect(sys.argv[1]); print(db.execute("SELECT count(*) FROM sqlite_master WHERE name LIKE 'pgret_%'").fetchone()[0])`, env.HERMES_KANBAN_DB], { encoding: 'utf8' }).trim() !== '0';
+    const openSettings = async () => { await page.getByRole('button', { name: 'Settings', exact: true }).click(); await page.locator('#cleanup-enabled').waitFor(); };
+    await page.locator('#cleanup-enabled').waitFor(); // the harness already opened Settings
+    // Simple defaults: no typed confirmations, nothing to initialise by hand, nothing to save yet.
+    assert.equal(await page.locator('#cleanup-archive-days').inputValue(), '30');
+    assert.equal(await page.locator('#cleanup-purge-days').inputValue(), '180');
+    assert.equal(await page.locator('#cleanup-enabled').isChecked(), false);
+    assert.equal(await page.locator('input[name=board][value=default]').isChecked(), true);
+    assert.equal(await page.locator('input[type=text], input:not([type])').count(), 0, 'no typed confirmation fields');
+    assert.equal(await page.locator('#cleanup-save').isDisabled(), true);
+    await page.locator('#cleanup-archive-days').fill('0');
+    await page.getByRole('alert').waitFor();
+    assert.equal(await page.locator('#cleanup-save').isDisabled(), true);
+    await page.locator('#cleanup-archive-days').fill('30');
+    await page.locator('input[name=board][value=default]').uncheck();
+    assert.equal(await page.locator('#cleanup-save').isDisabled(), true, 'at least one board is required');
+    await page.locator('input[name=board][value=default]').check();
+    // Cancelling the dialog (button or Escape) must leave the database untouched.
+    await page.locator('#cleanup-enabled').check();
+    await page.locator('#cleanup-save').click();
+    await page.getByRole('alertdialog').waitFor();
+    assert.match(await page.getByRole('alertdialog').innerText(), /Aktifkan pembersihan otomatis\?[\s\S]*dihapus permanen[\s\S]*Backup database/);
+    // The reviewed policy is what gets saved: nothing behind the dialog may be edited meanwhile.
+    for (const selector of ['#cleanup-enabled', '#cleanup-archive-days', '#cleanup-purge-days', 'input[name=board][value=default]']) {
+      assert.equal(await page.locator(selector).isDisabled(), true, selector + ' must be locked while the dialog is open');
+    }
+    assert.match(await page.getByRole('alertdialog').innerText(), /Board: default\./);
+    assert.match(await page.getByRole('alertdialog').innerText(), /selama 30 hari[\s\S]*lebih dari 180 hari/);
+    await page.locator('#dialog-cancel').click();
+    await page.getByRole('alertdialog').waitFor({ state: 'detached' });
+    assert.equal(await page.locator('#cleanup-archive-days').isDisabled(), false, 'form unlocks after cancel');
+    await page.locator('#cleanup-save').click();
+    await page.getByRole('alertdialog').waitFor();
+    await page.keyboard.press('Escape');
+    await page.getByRole('alertdialog').waitFor({ state: 'detached' });
+    assert.equal(hasTracking(), false);
+    // One confirmation does everything: backup, tracking and enabling.
+    await page.locator('#cleanup-save').click();
+    await page.locator('#dialog-confirm').click();
+    await page.getByText('Tersimpan. Pembersihan otomatis aktif.', { exact: true }).waitFor();
+    assert.equal(hasTracking(), true);
     // Simulate elapsed months in PRIVATE fixture clocks, never a live database.
     execFileSync('python3', ['-c', `import sqlite3,time,sys; db=sqlite3.connect(sys.argv[1]); now=int(time.time()); db.execute('UPDATE pengudeck_retention_clock SET activity_at=? WHERE task_id=?',(now-31*86400,sys.argv[2])); db.execute('UPDATE pengudeck_retention_clock SET activity_at=?,archived_at=? WHERE task_id=?',(now-181*86400,now-181*86400,sys.argv[3])); db.commit(); db.close()`, env.HERMES_KANBAN_DB, done, purge]);
-    // Enable requires typed confirmation; immediately disable again (fixture has no scheduler).
-    await page.locator('#retention-enabled').check();
-    assert.equal(await page.getByRole('button', { name: 'Simpan kebijakan' }).isDisabled(), true);
-    await page.locator('#enable-confirmation').fill('ENABLE RETENTION');
-    await page.getByRole('button', { name: 'Simpan kebijakan' }).click();
-    await page.getByText('Kebijakan tersimpan.', { exact: true }).waitFor();
-    await page.locator('#retention-enabled').uncheck();
-    await page.getByRole('button', { name: 'Simpan kebijakan' }).click();
-    await page.getByText('Kebijakan tersimpan.', { exact: true }).waitFor();
     await page.reload();
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    await page.locator('#archive-days').waitFor();
-    assert.equal(await page.locator('#retention-enabled').isChecked(), false);
-    await page.getByRole('button', { name: 'Preview / dry-run' }).click();
-    await page.locator('#apply-confirmation').waitFor();
-    const preview = JSON.parse(await page.locator('.retention-output').first().innerText());
-    assert.deepEqual(preview.archive.map(x => x.id), [done]);
-    assert.deepEqual(preview.purge.map(x => x.id), [purge]);
-    assert.equal(await page.getByRole('button', { name: 'Jalankan arsip / hapus' }).isDisabled(), true);
-    await page.locator('#apply-confirmation').fill('ARCHIVE AND DELETE');
+    await openSettings();
+    assert.equal(await page.locator('#cleanup-enabled').isChecked(), true);
+    await page.getByText('Saat ini 1 card akan diarsipkan dan 1 card akan dihapus permanen.', { exact: true }).waitFor();
+    // Disabling needs no dialog and survives a reload.
+    await page.locator('#cleanup-enabled').uncheck();
+    await page.locator('#cleanup-save').click();
+    await page.getByText('Pembersihan otomatis dimatikan.', { exact: true }).waitFor();
+    await page.reload();
+    await openSettings();
+    assert.equal(await page.locator('#cleanup-enabled').isChecked(), false);
+    // Manual run lives under "Lanjutan" and needs the dialog.
+    await page.getByText('Lanjutan', { exact: true }).click();
+    await page.getByText('Saat ini 1 card akan diarsipkan dan 1 card akan dihapus permanen.', { exact: true }).first().waitFor();
+    assert.equal(await page.locator('#cleanup-run').isDisabled(), false);
     const lightContrast = await auditContrast(page);
     assert.ok(lightContrast.checked > 10, 'contrast audit must inspect rendered text');
     assert.deepEqual(lightContrast.failures, []);
     await page.screenshot({ path: path.join(output, `${engine}-desktop-light.png`), fullPage: true });
-    await page.getByRole('button', { name: 'Jalankan arsip / hapus' }).click();
-    await page.getByText('Eksekusi selesai; periksa hasil lalu muat ulang board.', { exact: true }).waitFor();
-    const result = JSON.parse(await page.locator('.retention-output').last().innerText());
-    assert.equal(result.archived.length, 1);
-    assert.equal(result.purged.length, 1);
-    assert.deepEqual(result.errors, []);
-    const rows = JSON.parse(cli('list', '--archived', '--json'));
-    assert.deepEqual(rows.map(x => [x.id, x.status]), [[done, 'archived']]);
+    await page.locator('#cleanup-run').click();
+    await page.getByRole('alertdialog').getByText('Jalankan pembersihan sekarang?').waitFor();
+    await page.locator('#dialog-cancel').click();
+    await page.getByRole('alertdialog').waitFor({ state: 'detached' });
+    assert.deepEqual(Object.fromEntries(JSON.parse(cli('list', '--archived', '--json')).map(x => [x.id, x.status])), { [done]: 'done', [purge]: 'archived' }, 'cancel must not change cards');
+    await page.locator('#cleanup-run').click();
+    await page.locator('#dialog-confirm').click();
+    await page.getByText('Selesai. Muat ulang board untuk melihat hasilnya.', { exact: true }).waitFor();
+    assert.deepEqual(JSON.parse(cli('list', '--archived', '--json')).map(x => [x.id, x.status]), [[done, 'archived']]);
+    await page.getByText('1 diarsipkan, 1 dihapus permanen.').waitFor({ state: 'attached' });
+    // Dialog on a phone in dark mode: readable and not clipped.
+    await page.locator('#cleanup-enabled').check();
     await page.getByRole('button', { name: 'Mode gelap', exact: true }).click();
     await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('#cleanup-save').click();
+    await page.getByRole('alertdialog').waitFor();
+    const box = await page.locator('.dialog').boundingBox();
+    assert.ok(box.x >= 0 && box.x + box.width <= 390 && box.y >= 0 && box.y + box.height <= 844, 'dialog fits the phone viewport');
     await page.screenshot({ path: path.join(output, `${engine}-mobile-dark.png`), fullPage: true });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     assert.equal(overflow, false, 'Settings should not overflow horizontally');
     const darkContrast = await auditContrast(page);
     assert.ok(darkContrast.checked > 10);
     assert.deepEqual(darkContrast.failures, []);
+    await page.keyboard.press('Escape');
     assert.deepEqual(errors, []);
     assert.deepEqual(failures, []);
     assert.deepEqual(external, []);
-    return { engine, passed: true, archived: result.archived.length, purged: result.purged.length, lightContrast, darkContrast, errors, failures, external };
+    return { engine, passed: true, lightContrast, darkContrast, errors, failures, external };
   } finally {
     if (browser) await browser.close();
     if (server) { server.kill('SIGTERM'); await new Promise(resolve => { if (server.exitCode !== null) resolve(); else server.once('exit', resolve); }); }
