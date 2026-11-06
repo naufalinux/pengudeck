@@ -1,4 +1,5 @@
 pub mod boards;
+pub mod retention;
 mod cors;
 
 /// Fixed production listener; deliberately not configurable by arguments or environment.

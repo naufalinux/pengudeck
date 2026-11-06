@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use hermes_dash_core::model::{group_by_column, LastUpdatedSource, Task};
+mod settings;
 
 pub const API_BASE: &str = "http://127.0.0.1:8788";
 
@@ -154,6 +155,7 @@ async fn request(url: String, kind: &str) -> Result<(Vec<String>, Vec<Task>), &'
 
 #[component]
 fn App() -> Element {
+    let mut show_settings = use_signal(|| false);
     let mut selected = use_signal(String::new);
     let mut boards = use_resource(|| async {
         request(format!("{API_BASE}/api/boards"), "boards")
@@ -225,6 +227,9 @@ fn App() -> Element {
                 div { class: "brand", "One Penguin Tech" }
                 h1 { "Hermes Kanban" }
                 div { class: "controls",
+                    button { class: "btn", "aria-expanded": show_settings(),
+                        onclick: move |_| show_settings.set(!show_settings()),
+                        if show_settings() { "Kembali ke board" } else { "Settings" } }
                     BoardPicker { boards: slugs, selected: selected(),
                         on_select: move |slug: String| {
                             chosen.set(true);
@@ -252,7 +257,8 @@ fn App() -> Element {
             }
             if let Some(Err(message)) = board_state.as_ref() { p { role: "alert", "{message}" } }
             if let Some(message) = card_error { p { role: "alert", "{message}" } }
-            BoardView { tasks }
+            if show_settings() { settings::RetentionPanel {} }
+            else { BoardView { tasks } }
         }
     }
 }

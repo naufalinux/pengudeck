@@ -1336,6 +1336,7 @@ version = "0.1.0"
 dependencies = [
  "dioxus",
  "hermes-dash-core",
+ "serde_json",
 ]
 
 [[package]]
