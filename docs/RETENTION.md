@@ -1,6 +1,11 @@
 # Kanban retention
 
-Pengudeck provides **Settings → Retensi Kanban** and `scripts/kanban_retention.py` (stdlib Python only). Deploying the code does not enable deletion or initialize tracking.
+Pengudeck provides **Settings → Pembersihan card otomatis** and two stdlib-only Python programs:
+
+- `scripts/kanban_retention.py` is the original engine and standalone command-line tool. It is kept unchanged (its workflow, flags and confirmations are documented below) and remains the only code that inspects or mutates boards.
+- `scripts/kanban_cleanup.py` is a thin facade used by the Settings page. It calls the engine's own functions so the browser needs one confirmed **Simpan** instead of the script's track → save → preview → typed confirmation → apply sequence.
+
+Deploying the code does not enable deletion or initialize tracking.
 
 ## Policy and activation
 
@@ -12,17 +17,26 @@ Pengudeck provides **Settings → Retensi Kanban** and `scripts/kanban_retention
 - Initialization gives **all existing cards a new observation window**. This deliberately delays cleanup rather than assuming no unobserved rearchive/activity occurred before installation.
 - Days are elapsed Unix seconds, independent of server timezone. Configuration accepts integer days 1–3650 and explicit board slugs, not a wildcard covering future boards.
 
-Settings workflow:
+Settings workflow (one card, no typed phrases):
 
-1. Run the rebuilt API/frontend using the existing loopback deployment workflow. This task does not deploy or restart production services.
-2. Set days and board scope, leave automation off, then **Simpan kebijakan**.
-3. Read the tracking warning, type `INITIALIZE TRACKING`, then **Inisialisasi pencatatan**. This backs up the selected databases, then atomically installs namespaced metadata tables/triggers. It does not modify Hermes source, credentials or configuration.
-4. **Preview / dry-run** reads the saved policy, not unsaved inputs. No cards or retention files are written. `tracking_required` lists uninitialized boards, which cannot be applied.
-5. For manual execution, review the candidates, type `ARCHIVE AND DELETE`, then **Jalankan arsip / hapus**. Changed previews must be repeated. Inspect `errors` and `remaining`, not just process/HTTP success.
-6. To opt into daily runs, tick automatic execution, type `ENABLE RETENTION`, and save. All selected boards must already have tracking. This authorizes archival and eventual permanent deletion for that scope.
-7. Untick and save to disable. **Disabling does not require readable board databases.** Tracking triggers remain installed so they can observe rearchives/activity while the API or scheduler is stopped.
+1. Choose board checkboxes (loaded from the real board list), the archive age and the purge age. Automation is off by default.
+2. Press **Simpan**. Turning automation off saves immediately and never touches board databases, so it works even if a board disappeared.
+3. Turning it on opens one confirmation dialog stating, in plain language, the ages, the exact number of cards that would be archived or permanently deleted right now (computed for the unsaved values, read-only), and, when a board has no tracking yet, that Pengudeck will back it up and install its tracking triggers (existing cards start a new observation window today). **Aktifkan** performs everything in order: save the policy disabled, back up only boards lacking tracking, install tracking, then enable. If any step fails the policy stays disabled (fail closed) and the page reports a plain reason.
+4. **Lanjutan** (collapsed) shows the last run and **Jalankan sekarang**. It uses the fingerprint of the summary you were shown and a dialog; if the board changed in between, the request is rejected as stale and nothing is deleted. The button is enabled only for a saved policy whose boards are tracked and which has candidates.
+5. A board removed from the checkbox list keeps its tracking triggers so rearchives and activity keep being observed.
 
-Settings shows both the last attempt (WIB timestamp/status) and the last completed run. **Muat ulang Settings** refreshes scheduler/interrupted-run information. An old successful run is not proof that a later attempt succeeded.
+The server converts the dialog's `confirmed: true` into the engine's confirmations; anything other than the boolean `true` is rejected. The engine still takes a backup before every card mutation, validates revision/status/age inside the destructive SQLite statement, holds its lock, and caps a run at 50 cards. Replacing typed phrases with a dialog lowers the friction for the destructive action; the 180-day archive age, automatic backup, default-off setting and exact counts in the dialog are the mitigation.
+
+Settings shows the last completed run. A run with errors says so; inspect the engine's `runs.jsonl` for detail. An old successful run is not proof that a later attempt succeeded.
+
+Facade API (same Host/Origin/`X-Pengudeck-Request` rules as below; error bodies contain only a fixed lowercase category):
+
+- `GET /api/settings/cleanup`: policy, last run, read-only summary `{archive, purge, untracked}` and fingerprint for the saved policy.
+- `POST /api/settings/cleanup/review` `{policy}`: read-only summary for unsaved values.
+- `PUT /api/settings/cleanup` `{policy, confirmed}`: save; `confirmed: true` is required only when enabling.
+- `POST /api/settings/cleanup/run` `{fingerprint, confirmed}`: apply a previously shown summary.
+
+The older `/api/settings/retention*` routes still expose the engine's original workflow operations for compatibility; the Settings page no longer uses them.
 
 The scheduler belongs to the API lifecycle. It checks once a minute, while the script permits at most one automatic attempt per 24 hours, including preview/backup failures. There is no new host cron job or service. No running API means no cleanup. Each batch handles at most 50 candidates with bounded command time; `remaining` includes failed/unattempted candidates.
 
@@ -103,4 +117,4 @@ PLAYWRIGHT_CORE=/absolute/path/to/playwright-core QA_OUT=/path/to/qa-output \
   node crates/web/tests/retention-browser.cjs chromium firefox
 ```
 
-The fixture API uses an ephemeral loopback port. All browser HTTP requests are intercepted and fulfilled from build files or the private API, never the existing services on 8081/8788. The harness exercises tracking consent, policy persistence, enable/disable confirmation, preview, apply, real CLI read-back, desktop/light and mobile/dark layouts, and console/network checks. Fixture processes stop afterwards. `PW_WEBKIT_WS` supports a matching cached Playwright container when host WebKit libraries are absent.
+The fixture API uses an ephemeral loopback port. All browser HTTP requests are intercepted and fulfilled from build files or the private API, never the existing services on 8081/8788. The harness exercises the simple Settings page: no typed fields, input validation, cancel by button and Escape leaving the database untouched, one-dialog backup+tracking+enable, persistence, dialog-free disable, manual run with real Hermes CLI read-back, desktop/light and mobile/dark layouts with the dialog open, contrast, and console/network checks. Fixture processes stop afterwards. `PW_WEBKIT_WS` supports a matching cached Playwright container when host WebKit libraries are absent.

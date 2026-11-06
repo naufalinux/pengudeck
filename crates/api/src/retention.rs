@@ -17,7 +17,7 @@ use std::{
 };
 
 const SCRIPT: &str = include_str!("../../../scripts/kanban_retention.py");
-const UI_ORIGIN: &str = "http://127.0.0.1:8081";
+pub(crate) const UI_ORIGIN: &str = "http://127.0.0.1:8081";
 type ApiError = (StatusCode, Json<Value>);
 
 /// Same shared Kanban root as Hermes, NOT the active profile's HERMES_HOME.
@@ -49,7 +49,7 @@ fn exactly(headers: &axum::http::HeaderMap, name: &str, value: &str) -> bool {
     values.next().is_some_and(|v| v == value) && values.next().is_none()
 }
 
-async fn protect(request: Request, next: Next) -> Response {
+pub(crate) async fn protect(request: Request, next: Next) -> Response {
     let origin_allowed = exactly(request.headers(), "origin", UI_ORIGIN);
     // Host validation also rejects DNS rebinding; do not relax for public deployment.
     if !exactly(request.headers(), "host", "127.0.0.1:8788") {
@@ -95,20 +95,40 @@ pub async fn execute(
     operation: &'static str,
     payload: Value,
 ) -> Result<Value, ApiError> {
-    tokio::task::spawn_blocking(move || execute_blocking(home, operation, payload))
-        .await
-        .map_err(|_| error(StatusCode::SERVICE_UNAVAILABLE, "retention_unavailable"))?
+    execute_program(home, SCRIPT, false, operation, payload).await
+}
+
+/// Same bounded runner for another embedded program. `with_engine` hands the
+/// original retention script to it through the environment, never a path.
+pub(crate) async fn execute_program(
+    home: PathBuf,
+    code: &'static str,
+    with_engine: bool,
+    operation: &'static str,
+    payload: Value,
+) -> Result<Value, ApiError> {
+    tokio::task::spawn_blocking(move || {
+        execute_blocking(home, code, with_engine, operation, payload)
+    })
+    .await
+    .map_err(|_| error(StatusCode::SERVICE_UNAVAILABLE, "retention_unavailable"))?
 }
 
 fn execute_blocking(
     home: PathBuf,
+    code: &'static str,
+    with_engine: bool,
     operation: &'static str,
     payload: Value,
 ) -> Result<Value, ApiError> {
     let failed = || error(StatusCode::SERVICE_UNAVAILABLE, "retention_unavailable");
-    let mut child = Command::new("python3")
+    let mut command = Command::new("python3");
+    if with_engine {
+        command.env("PENGUDECK_RETENTION_SCRIPT", SCRIPT);
+    }
+    let mut child = command
         .arg("-c")
-        .arg(SCRIPT)
+        .arg(code)
         .arg(operation)
         .arg("--home")
         .arg(home)
