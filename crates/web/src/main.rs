@@ -351,6 +351,27 @@ mod tests {
     }
 
     #[test]
+    fn board_renders_newest_updated_card_before_older_and_unknown_cards() {
+        use dioxus::prelude::*;
+        let mut dom = VirtualDom::new(|| {
+            let tasks = [("unknown_card", None), ("older_card", Some(100)), ("newest_card", Some(300))]
+                .into_iter()
+                .map(|(id, last_updated)| Task {
+                    id: id.into(), title: "Card".into(), status: Status::Todo,
+                    assignee: None, created_at: None, started_at: None, completed_at: None,
+                    last_updated, last_updated_source: None,
+                })
+                .collect::<Vec<_>>();
+            rsx! { super::BoardView { tasks } }
+        });
+        let mutations = format!("{:?}", dom.rebuild_to_vec());
+        let newest = mutations.find("newest_card").expect("newest card rendered");
+        let older = mutations.find("older_card").expect("older card rendered");
+        let unknown = mutations.find("unknown_card").expect("unknown card rendered");
+        assert!(newest < older && older < unknown, "wrong card order: {mutations}");
+    }
+
+    #[test]
     fn formats_utc8_dates_and_known_epochs() {
         assert_eq!(super::format_last_updated(0), "1970-01-01 07:00 WIB");
         // 1792957202 is created_at of task t_437645c2: 2026-10-26 03:40 UTC+8 = 02:40 WIB.

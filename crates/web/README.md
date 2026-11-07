@@ -33,7 +33,10 @@ node --test crates/web/tests/fetch.test.mjs # from workspace root
 The API base is the Rust constant `http://127.0.0.1:8788`. Board options come
 from `GET /api/boards`; choose one to fetch `GET /api/boards/{slug}/tasks`.
 There is no hardcoded default board. All six columns remain visible, including
-empty columns. Core owns grouping; card content is rendered as text, never HTML.
+empty columns. Core owns grouping and sorts cards within each column by
+`last_updated` descending (newest first). Cards without a timestamp come last;
+equal or missing timestamps retain their original relative order. Sorting does
+not modify the source tasks. Card content is rendered as text, never HTML.
 A changed selection cancels the prior resource and excludes stale-board results.
 The reload button retries requests. Requests time out after ten seconds and
 omit credentials. Errors are short static messages; response error bodies and

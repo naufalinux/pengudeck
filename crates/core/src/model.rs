@@ -60,13 +60,15 @@ pub struct Column<'a> {
     pub tasks: Vec<&'a Task>,
 }
 
-/// Retains source order within each visible column, including empty columns.
+/// Groups visible columns with newest-updated tasks first, including empty columns.
+/// Equal timestamps retain source order; tasks without a timestamp come last.
 pub fn group_by_column(tasks: &[Task]) -> Vec<Column<'_>> {
     COLUMNS
         .into_iter()
-        .map(|status| Column {
-            status,
-            tasks: tasks.iter().filter(|task| task.status == status).collect(),
+        .map(|status| {
+            let mut tasks: Vec<_> = tasks.iter().filter(|task| task.status == status).collect();
+            tasks.sort_by_key(|task| std::cmp::Reverse(task.last_updated));
+            Column { status, tasks }
         })
         .collect()
 }
