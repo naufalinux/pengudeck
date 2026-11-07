@@ -40,6 +40,68 @@ fn groups_fixture_into_all_six_columns_in_order_with_stable_task_order() {
 }
 
 #[test]
+fn every_column_sorts_cards_by_latest_update_first() {
+    let tasks: Vec<Task> = COLUMNS
+        .into_iter()
+        .flat_map(|status| {
+            [("old", 100), ("newest", 300), ("middle", 200)]
+                .into_iter()
+                .map(move |(id, last_updated)| Task {
+                    id: id.into(),
+                    title: id.into(),
+                    status,
+                    assignee: None,
+                    created_at: None,
+                    started_at: None,
+                    completed_at: None,
+                    last_updated: Some(last_updated),
+                    last_updated_source: None,
+                })
+        })
+        .collect();
+    let original = tasks.clone();
+    for column in group_by_column(&tasks) {
+        assert_eq!(
+            column.tasks.iter().map(|task| task.id.as_str()).collect::<Vec<_>>(),
+            ["newest", "middle", "old"],
+            "wrong order for {:?}", column.status
+        );
+    }
+    assert_eq!(tasks, original, "grouping must not mutate the source tasks");
+}
+
+#[test]
+fn equal_and_missing_updates_keep_source_order_with_missing_values_last() {
+    let tasks: Vec<_> = [
+        ("missing_first", None),
+        ("equal_first", Some(300)),
+        ("oldest", Some(i64::MIN)),
+        ("missing_second", None),
+        ("equal_second", Some(300)),
+        ("newest", Some(i64::MAX)),
+        ("epoch", Some(0)),
+    ]
+    .into_iter()
+    .map(|(id, last_updated)| Task {
+        id: id.into(),
+        title: id.into(),
+        status: Status::Todo,
+        assignee: None,
+        created_at: None,
+        started_at: None,
+        completed_at: None,
+        last_updated,
+        last_updated_source: None,
+    })
+    .collect();
+    let columns = group_by_column(&tasks);
+    assert_eq!(
+        columns[0].tasks.iter().map(|task| task.id.as_str()).collect::<Vec<_>>(),
+        ["newest", "equal_first", "equal_second", "epoch", "oldest", "missing_first", "missing_second"]
+    );
+}
+
+#[test]
 fn empty_input_keeps_six_empty_columns() {
     let columns = group_by_column(&[]);
     assert_eq!(columns.len(), 6);
